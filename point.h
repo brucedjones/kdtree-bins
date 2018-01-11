@@ -43,5 +43,19 @@ public:
 
 };
 
+template<class T>
+class compare_points_by_axis
+{
+private:
+    int axis;
+public:
+    compare_points_by_axis(int axis):axis(axis){}
+
+    bool operator()(Point<T> a,Point<T> b) const
+    {
+        return a[axis]<b[axis]; 
+    }
+};
+
 
 #endif

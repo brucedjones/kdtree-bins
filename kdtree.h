@@ -6,6 +6,7 @@
 #include <set>
 #include <climits>
 #include <iostream>
+#include <algorithm>
 
 #define SAMPLE_N 20
 
@@ -38,22 +39,8 @@ public:
                 samplePts = pts;
             }
             
-            T min = INT_MAX;
-            T max = INT_MIN;
-            for (size_t i = 0; i < samplePts.size(); i++)
-            {
-                if(samplePts[i][axis] < min) min = samplePts[i][axis];
-                if(samplePts[i][axis] > max) max = samplePts[i][axis];
-            }
-            T medianSample = (max-min)/2;
-
-            size_t closestID = 0;
-            for (size_t i = 1; i < samplePts.size(); i++)
-            {
-                if(abs(samplePts[i][axis]-medianSample) < abs(samplePts[closestID][axis]-medianSample)) closestID = i;
-            }
-
-            median = samplePts[closestID];
+            std::sort(samplePts.begin(), samplePts.end(), compare_points_by_axis<T>(axis));
+            median = samplePts[samplePts.size()/2];
 
             std::vector<Point<T>> leftPts;
             for(std::vector<Point<T>>::iterator pt = pts.begin(); pt!= pts.end();){
@@ -159,7 +146,8 @@ public:
             std::vector<Point<T>> left = this->left->toVector();
             left.erase(left.begin());
             delete this->left;
-            this->left = new kdtree<T>(left,depth+1,this);
+            if(left.size()>0) this->left = new kdtree<T>(left,depth+1,this);
+            else this->left = nullptr;
             return;
         }
         
@@ -167,7 +155,8 @@ public:
             std::vector<Point<T>> right = this->right->toVector();
             right.erase(right.begin());
             delete this->right;
-            this->right = new kdtree<T>(right,depth+1,this);
+            if(right.size()>0) this->right = new kdtree<T>(right,depth+1,this);
+            else this->right = nullptr;
             return;
         }
 
