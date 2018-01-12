@@ -16,57 +16,27 @@ public:
     
     kdtree(){};
 
-    kdtree(std::vector<Point<T>> pts, int depth=0, kdtree<T> *parent=nullptr) : pts(pts), depth(depth), parent(parent) {
+    kdtree(std::vector<Point<T>> pts, int depth=0, kdtree<T> *parent=nullptr, int maxPts=3) : depth(depth), parent(parent), maxPts(maxPts) {
 
-        if(pts.size()>1){
-            d = pts[0].dim;
-            axis = depth % d;
-
-            std::vector<Point<T>> samplePts;
-            
-            if(pts.size()>SAMPLE_N){
-                std::set<int> generated;
-                int num;
-                for (size_t i = 0; i < SAMPLE_N; i++)
-                {
-                    while(generated.size()<i){
-                        num = rand() % pts.size();
-                        generated.insert(num);
-                    }
-                    samplePts.push_back(pts[num]);
-                }
-            } else {
-                samplePts = pts;
-            }
-            
-            std::sort(samplePts.begin(), samplePts.end(), compare_points_by_axis<T>(axis));
-            median = samplePts[samplePts.size()/2];
-
-            std::vector<Point<T>> leftPts;
-            for(std::vector<Point<T>>::iterator pt = pts.begin(); pt!= pts.end();){
-                bool remove = false;
-                if((*pt) == median) remove = true;
-                else {
-                    if((*pt)[axis] <= median[axis]){
-                        remove = true;
-                        leftPts.push_back(*pt);
-                    }
-                }
-
-                if(remove) pt = pts.erase(pt);
-                else ++pt;
-            }
-
-            if(leftPts.size()>0) left = new kdtree<T>(leftPts, depth+1, this);
-            if(pts.size()>0) right = new kdtree<T>(pts,depth+1, this);
-        } else {
-            median = pts[0];
-        }
+        if(pts.size()==0) return;
         
+        d = pts[0].dim;
+        axis = depth % d;
+
+        if(pts.size()<=maxPts) {
+            this->pts = pts;
+            median = Point<T>({0});
+        } else{
+            setMedian(pts);
+            splitPoints(median,pts);
+        }
     };
 
-    kdtree(Point<T> pt, int depth, kdtree<T> *parent): median(pt), depth(depth), parent(parent){
+    kdtree(Point<T> pt, int depth=0, kdtree<T> *parent=nullptr): depth(depth), parent(parent){
         axis = depth % pt.dim;
+        median = Point<T>({0});
+        pts.push_back(pt);
+        median = Point<T>({0});
     };
 
     ~kdtree(){
@@ -74,38 +44,70 @@ public:
         if(right!=nullptr) delete right;
     };
 
-    Point<T> findNN(Point<T> pt) {
-        if(!this->left && !this->right) return this->median;
-        
-        Point<T> nearestChild;
-        if(pt[axis] <= this->median[axis]){
-            if(!this->left) return this->median;
-            nearestChild = this->left->findNN(pt);
+    void setMedian(std::vector<Point<T>> pts){
+        std::vector<Point<T>> samplePts;
+            
+        if(pts.size()>SAMPLE_N){
+            std::set<int> generated;
+            int num;
+            for (size_t i = 0; i < SAMPLE_N; i++)
+            {
+                while(generated.size()<i){
+                    num = rand() % pts.size();
+                    generated.insert(num);
+                }
+                samplePts.push_back(pts[num]);
+            }
+        } else {
+            samplePts = pts;
         }
-        else{
-            if(!this->right) return this->median;
-            nearestChild = this->right->findNN(pt);
-        }  
+
+        std::sort(samplePts.begin(), samplePts.end(), compare_points_by_axis<T>(axis));
+        if(samplePts.size()%2 == 0){
+            median = (samplePts[samplePts.size()/2]+samplePts[(samplePts.size()/2)-1])/2;
+        } else median = samplePts[samplePts.size()/2];
+    }
+
+    void splitPoints(Point<T> median, std::vector<Point<T>> pts){
+            std::vector<Point<T>> leftPts;
+            for(std::vector<Point<T>>::iterator pt = pts.begin(); pt!= pts.end();){
+                if((*pt)[axis] <= median[axis]){
+                    leftPts.push_back(*pt);
+                    pt = pts.erase(pt);
+                } else ++pt;
+            }
+
+            if(leftPts.size()>0) left = new kdtree<T>(leftPts, depth+1, this);
+            if(pts.size()>0) right = new kdtree<T>(pts,depth+1, this);
+    }
+
+    Point<T> findNN(Point<T> pt) {
+        if(!this->left && !this->right){
+            Point<T> nearest = pts[0];
+            for(size_t i=1;i<pts.size();i++){
+                if(pt.Distance2(pts[i]) < pt.Distance2(nearest)) nearest=pts[i];
+            }
+            return nearest;
+        }
+
+        Point<T> nearestChild;
+        if(pt[axis] <= this->median[axis]) nearestChild = this->left->findNN(pt);
+        else nearestChild = this->right->findNN(pt);
 
         if(pt.Distance2(this->median)<pt.Distance2(nearestChild)){
-            if(pt[axis] > this->median[axis] && this->left != nullptr){
-                if(!this->left) return this->median;
-                nearestChild = this->left->findNN(pt);
-            }
-            else {
-                if(!this->right) return this->median;
-                nearestChild = this->right->findNN(pt);
-            }
+            if(pt[axis] > this->median[axis] && this->left) nearestChild = this->left->findNN(pt);
+            else if(this->right) nearestChild = this->right->findNN(pt);
         }
 
-        if(pt.Distance2(this->median)<pt.Distance2(nearestChild)) return this->median;
-        else return nearestChild;
+        return nearestChild;
     }
 
     void findNeighborList(Point<T> pt, T r, std::vector<Point<T>> &nlist){
-        if(pt.Distance2(this->median)<=r*r) nlist.push_back(this->median);
-
-        if(abs(pt[axis]-this->median[axis])<=r){
+        if(!this->left && !this->right){
+            for(std::vector<Point<T>>::iterator tpt=pts.begin(); tpt!=pts.end();++tpt){
+                if((*tpt).Distance2(pt)<=r*r) nlist.push_back(*tpt);
+            }
+        } else if(abs(pt[axis]-this->median[axis])<=r){
             if(this->left != nullptr) this->left->findNeighborList(pt,r,nlist);
             if(this->right != nullptr) this->right->findNeighborList(pt,r,nlist);
         }
@@ -114,13 +116,23 @@ public:
     }
 
     void add(Point<T> pt){
-        if(pt[axis] <= this->median[axis]){
-            if(!this->left) this->left = new kdtree<T>(pt, depth+1, this);
-            else this->left->add(pt);
+        if(!this->left && !this->right){
+            this->pts.push_back(pt);
+            if(this->pts.size() > maxPts) {
+                setMedian(pts);
+                splitPoints(median,pts);
+                this->pts.clear();
+            }
         } else {
-            if(!this->right) this->right = new kdtree<T>(pt, depth+1, this);
-            else this->right->add(pt);
+            if(pt[axis] <= this->median[axis]) 
+                this->left->add(pt);
+            else 
+                this->right->add(pt);
         }
+    }
+
+    void add(std::vector<Point<T>> pts){
+        for(std::vector<Point<T>>::iterator pt=pts.begin(); pt!=pts.end(); ++pt) this->add(*pt);
     }
 
     std::vector<Point<T>> toVector(){
@@ -130,7 +142,7 @@ public:
     }
 
     void toVector(std::vector<Point<T>> &vec){
-        vec.push_back(this->median);
+        vec.insert(vec.end(), this->pts.begin(), this->pts.end());
         if(this->left) this->left->toVector(vec);
         if(this->right) this->right->toVector(vec);
         return;
@@ -142,30 +154,37 @@ public:
     }
 
     void remove(Point<T> pt){
-        if(this->left && this->left->median == pt){
-            std::vector<Point<T>> left = this->left->toVector();
-            left.erase(left.begin());
-            delete this->left;
-            if(left.size()>0) this->left = new kdtree<T>(left,depth+1,this);
-            else this->left = nullptr;
-            return;
-        }
-        
-        if(this->right && this->right->median == pt){
-            std::vector<Point<T>> right = this->right->toVector();
-            right.erase(right.begin());
-            delete this->right;
-            if(right.size()>0) this->right = new kdtree<T>(right,depth+1,this);
-            else this->right = nullptr;
-            return;
+        if(this->left && left->pts.size()>0){
+            std::vector<Point<T>>::iterator toRemove = std::find(left->pts.begin(), left->pts.end(),pt);
+            if(toRemove != left->pts.end()) left->pts.erase(toRemove);
+            if(left->pts.size()==0){
+                median = Point<T>({0});
+                pts = right->pts;
+                delete left;
+                left = nullptr;
+            }
         }
 
-        if(pt[axis] <= this->median[axis] && this->left) this->left->remove(pt);
+        if(this->right && right->pts.size()>0){
+            std::vector<Point<T>>::iterator toRemove = std::find(right->pts.begin(), right->pts.end(),pt);
+            if(toRemove != right->pts.end()) right->pts.erase(toRemove);
+            if(right->pts.size()==0){
+                median = Point<T>({0});
+                pts = right->pts;
+                delete right;
+                right = nullptr;
+            }
+        }
+
+        if(this->left && pt[axis] <= this->median[axis]) this->left->remove(pt);
         else if (this->right) this->right->remove(pt);
     }
     
     friend std::ostream &operator<<(std::ostream &os, kdtree<T> &tree) { 
-        os << tree.median << ",[";
+        os << tree.median;
+        os << "<";
+        for(std::vector<Point<T>>::iterator pt=tree.pts.begin(); pt!=tree.pts.end(); ++pt) os << *pt;
+        os << ">,[";
         if(tree.left!=nullptr) os << *(tree.left);
         os << "],[";
         if(tree.right!=nullptr) os << *(tree.right);
@@ -180,7 +199,8 @@ public:
     kdtree<T> *left = nullptr;
     kdtree<T> *right = nullptr;
     kdtree<T> *parent = nullptr;
-    std::vector<Point<T>> pts; 
+    std::vector<Point<T>> pts;
+    int maxPts = 5;
 
 };
 

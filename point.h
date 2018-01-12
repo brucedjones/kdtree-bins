@@ -12,13 +12,53 @@ public:
     };
     ~Point(){};
 
-    bool operator==(const Point &rhs){
+    bool operator==(const Point<T> &rhs){
         return rhs.xyz==this->xyz;
     }
 
     T& operator[] (size_t i) {
           return xyz[i];
-      }
+    }
+
+    Point<T> operator+(const Point<T> &rhs){
+        Point<T> out;
+        size_t maxDim = rhs.xyz.size();
+        if(this->xyz.size() < maxDim) maxDim = this->xyz.size();
+        for(size_t i=0; i<maxDim; i++) out.xyz.push_back(this->xyz[i]+rhs.xyz[i]);
+        return out;
+    }
+
+    Point<T> operator+(const T rhs){
+        Point<T> out;
+        for(size_t i=0; i<this->xyz.size(); i++) out.xyz.push_back(this->xyz[i]+rhs);
+        return out;
+    }
+
+    Point<T> operator-(const Point<T> &rhs){
+        Point<T> out;
+        size_t maxDim = rhs.xyz.size();
+        if(this->xyz.size() < maxDim) maxDim = this->xyz.size();
+        for(size_t i=0; i<maxDim; i++) out.xyz.push_back(this->xyz[i]-rhs.xyz[i]);
+        return out;
+    }
+
+    Point<T> operator-(const T rhs){
+        Point<T> out;
+        for(size_t i=0; i<this->xyz.size(); i++) out.xyz.push_back(this->xyz[i]-rhs);
+        return out;
+    }
+
+    Point<T> operator*(const T rhs){
+        Point<T> out;
+        for(size_t i=0; i<this->xyz.size(); i++) out.xyz.push_back(this->xyz[i]*rhs);
+        return out;
+    }
+
+    Point<T> operator/(const T rhs){
+        Point<T> out;
+        for(size_t i=0; i<this->xyz.size(); i++) out.xyz.push_back(this->xyz[i]/rhs);
+        return out;
+    }
 
     friend std::ostream &operator<<(std::ostream &os, Point<T> &pt) { 
         os << "{";

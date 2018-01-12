@@ -4,7 +4,7 @@
 #include <iostream>
 
 int main(){
-    /*std::vector<Point<int>> pts = {Point<int>({2,0}),
+    std::vector<Point<int>> pts = {Point<int>({2,0}),
         Point<int>({3,1}),
         Point<int>({4,2}),
         Point<int>({5,3}),
@@ -14,7 +14,22 @@ int main(){
     kdtree<int> tree(pts);
     std::cout << tree << std::endl;
 
-    Point<int> nearest = tree.findNN(Point<int>({2,3}));
+    Point<int> a({2,1});
+    Point<int> b({1,2});
+    Point<int> c = a+b;
+    std::cout << a << " + " << b << " = " << c << std::endl;
+
+    kdtree<int> treec(c);
+    std::cout << treec << std::endl;
+
+    tree.add(pts);
+    tree.add(Point<int>({5,2}));
+    std::cout << tree << std::endl;
+    tree.remove(Point<int>({5,2}));
+    std::cout << tree << std::endl;
+
+
+    Point<int> nearest = tree.findNN(Point<int>({5,6}));
     std::cout << nearest << std::endl;
 
     std::vector<Point<int>> neighbors;
@@ -31,13 +46,14 @@ int main(){
     for(std::vector<Point<int>>::iterator pt=ptsFromTree.begin(); pt!=ptsFromTree.end(); ++pt) std::cout << *pt << std::endl;
 
     tree.add(Point<int>({5,4}));
+    std::cout << tree << std::endl;
     tree.add(Point<int>({1,4}));
     tree.add(Point<int>({2,3}));
     tree.add(Point<int>({1,1}));
     tree.add(Point<int>({0,7}));
     kdtree<int> balancedTree = tree.balanced();
     std::cout << "unbalanced tree: " << tree << std::endl;
-    std::cout << "  balanced tree: " << balancedTree << std::endl;*/
+    std::cout << "  balanced tree: " << balancedTree << std::endl;
 
     
     std::vector<Point<int>> pts2 = {Point<int>({2,0}),
